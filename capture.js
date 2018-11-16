@@ -26,11 +26,12 @@ window.onload = function () {
         photo.src = start(video,
 
 
-            function(image) {
+            function(a, b, c, d, e) {
+                //  var myImageData = ctx.getImageData(left, top, width, height);
 
-
+                return true;
             },
-            
+
             function(context, left, right, bottom, top) {
 
                 context.beginPath();
@@ -38,6 +39,11 @@ window.onload = function () {
                 let midY = (bottom + top) / 2;
                 let lenX = right - left;
                 let lenY = top - bottom;
+                if (lenX < 0)
+                    return;
+                if (lenY < 0)
+                    return;
+
                 let t = min(lenX, lenY) / 2;
 
                 context.arc(midX, midY, t, 0, Math.PI*2, true); // Внешняя окружность
@@ -75,12 +81,34 @@ window.onload = function () {
 };
 
 
-function start(image, find_callback, mark_callback) {
+function start(video, find_callback, mark_callback) {
+
     let context = canvas.getContext('2d');
     context.drawImage(video, 0, 0, video.width, video.height);
-    mark_callback(context, 0, video.width, 0, video.height);
 
-    
+
+    let maxWidth = video.width;
+    let maxHeigth = video.height;
+    let max = min(maxHeigth, maxWidth);
+
+
+    for (var currentSize = 100; currentSize < max; currentSize = currentSize + 30) {
+
+        let step = currentSize / 5;
+
+        for (var x = 0; x < maxWidth; x = x + step) {
+            for (var y = 0; y < maxHeigth; y = y + step) {
+                let leftX = x;
+                let rightX = x + currentSize;
+                let downY = y;
+                let upY = y + currentSize;
+                if (find_callback(context, leftX, rightX, downY, upY)) {
+                    mark_callback(context, leftX, rightX, downY, upY);
+                }
+            }
+        }
+    }
+
     let base64dataUrl = canvas.toDataURL('image/png');
 
     return base64dataUrl;
