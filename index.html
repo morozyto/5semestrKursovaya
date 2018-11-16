@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+    <head>
+        <title>WebRTC: Still photo capture demo</title>
+        <meta charset='utf-8'>
+        <link rel="stylesheet" href="main.css" type="text/css" media="all">
+        <script async src="capture.js">
+        </script>
+    </head>
+    <body>
+        <div class="contentarea">
+            <div id="allow"> Please allow camera! </div>
+
+            <div class="camera">
+                <video id="video" width="320" height="240" autoplay="autoplay" ></video>
+                <button id="button"> Click! </button>
+            </div>
+
+            <canvas id="canvas" width="320" height="240" ></canvas>
+
+            <div class="output">
+                <img id="photo" alt="The screen capture will appear in this box.">
+            </div>
+        </div>
+    </body>
+</html>
