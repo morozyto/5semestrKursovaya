@@ -7,6 +7,13 @@ function min(a, b) {
         return a;
 }
 
+function max(a, b) {
+    if (a > b)
+        return a;
+    else
+        return b;
+}
+
 window.onload = function () {
 
     let photo = document.getElementById('photo');
@@ -26,10 +33,24 @@ window.onload = function () {
         photo.src = start(video,
 
 
-            function(a, b, c, d, e) {
-                //  var myImageData = ctx.getImageData(left, top, width, height);
+            function(context, leftX, rightX, downY, upY) {
 
-                return true;
+                var myImageData = context.getImageData(leftX, downY, rightX - leftX, upY - downY);
+                var data = myImageData.data;
+
+                var sum = 0;
+
+                for (var i = 0; i < data.length; i += 4) {
+                    if (data[i] > 3*max(data[i + 1], data[i + 2]) / 2)
+                        sum += 1;
+                }
+
+                var pixelCount = data.length / 4;
+
+                if (sum > pixelCount * 9 / 10)
+                    return true;
+                else
+                    return false;
             },
 
             function(context, left, right, bottom, top) {
@@ -92,9 +113,9 @@ function start(video, find_callback, mark_callback) {
     let max = min(maxHeigth, maxWidth);
 
 
-    for (var currentSize = 100; currentSize < max; currentSize = currentSize + 30) {
+    for (var currentSize = 150; currentSize < max; currentSize = currentSize + 50) {
 
-        let step = currentSize / 5;
+        let step = currentSize / 4;
 
         for (var x = 0; x < maxWidth; x = x + step) {
             for (var y = 0; y < maxHeigth; y = y + step) {
