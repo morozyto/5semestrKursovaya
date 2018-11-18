@@ -26,9 +26,7 @@ window.onload = function () {
 
     // функция которая будет выполнена при нажатии на кнопку захвата кадра
     var captureMe = function () {
-        if (!videoStreamUrl) alert('Allow camera first!')
-
-        //context.drawImage(video, 0, 0, video.width, video.height);
+        if (!videoStreamUrl) alert('Allow camera first!');
 
         photo.src = start(video,
 
@@ -47,10 +45,7 @@ window.onload = function () {
 
                 var pixelCount = data.length / 4;
 
-                if (sum > pixelCount * 9 / 10)
-                    return true;
-                else
-                    return false;
+                return sum > pixelCount * 9 / 10;
             },
 
             function(context, left, right, bottom, top) {
@@ -83,7 +78,7 @@ window.onload = function () {
                 context.arc(midX + (t / 4), midY - (t / 3), miniRadius, 0, Math.PI*2, true);  // Правый глаз
                 context.stroke();
             });
-    }
+    };
 
     button.addEventListener('click', captureMe);
 
@@ -130,7 +125,5 @@ function start(video, find_callback, mark_callback) {
         }
     }
 
-    let base64dataUrl = canvas.toDataURL('image/png');
-
-    return base64dataUrl;
+    return canvas.toDataURL('image/png');
 }
