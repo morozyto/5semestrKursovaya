@@ -18,6 +18,36 @@ function abs(a) {
     return -a;
 }
 
+function getHeatMap(canvas, imagedata) {
+
+    var data = imagedata.data;
+
+    for (var i = 0; i < data.length; i += 4) {
+        let R = data[i + 0];
+        let G = data[i + 1];
+        let B = data[i + 2];
+        let I = 0.2126*R + 0.7152*G + 0.0722*B;
+        data[i + 0] = I;
+        data[i + 1] = data[i + 2] = 0;
+    }
+
+    return canvas.putImageData(imagedata, 0, 0).toDataURL('image/png');
+}
+
+function draw_strela(ctx, x_start, y_start, dx, dy) {
+    ctx.strokeStyle = "black";
+    ctx.beginPath();
+    ctx.moveTo(x_start, y_start);
+    ctx.lineTo(x_start + dx, y_start + dy);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.strokeStyle = "orange";
+    ctx.beginPath();
+    ctx.strokeRect(x_start + dx, y_start + dy, 1, 1);
+    ctx.closePath();
+    ctx.stroke();
+}
+
 function getGauss(new_x, new_y, otklonenie) {
     return (1. / (Math.sqrt(2*Math.PI) * otklonenie)) * Math.exp(- (new_x*new_x + new_y*new_y) / 2*otklonenie*otklonenie);
 }
@@ -47,37 +77,51 @@ function getOldCoords(x_centre, y_centre, x_new, y_new) {
 
 function getI(imageData, x, y) {
 
+    let neighborhood = (imageData.width - 1) / 2;
+
+    let coords = getOldCoords(neighborhood, neighborhood, x, y);
+
     var data = imageData.data;
 
-    let index = ((y * (imageData.width * 4)) + (x * 4));
+    let index = ((coords.y * (imageData.width * 4)) + (coords.x * 4));
+
+    //alert("x = " + coords.x + " , y = " + coords.y + ' , width = ' + imageData.width);
 
     let R = data[index + 0];
     let G = data[index + 1];
     let B = data[index + 2];
+    let I = 0.2126*R + 0.7152*G + 0.0722*B;
+   // alert("I is " + I);
 
-    return (0.2126*R + 0.7152*G + 0.0722*B);
+    return I;
 }
 
-function found_move(context_old, context_new, x_start, y_start, neighborhood, maxWidth, maxHeight) {
+function found_move(oldImageData, newImageData, x_start, y_start, neighborhood, maxWidth, maxHeight, verbose) {
 
     if (x_start < neighborhood || y_start < neighborhood || (maxWidth - x_start) <= neighborhood || (maxHeight - y_start) <= neighborhood)
         return {x: 0, y: 0};
 
-    var oldImageData = context_old.getImageData(x_start - neighborhood, y_start - neighborhood, 2*neighborhood + 1, 2*neighborhood + 1);
-    var newImageData = context_new.getImageData(x_start - neighborhood, y_start - neighborhood, 2*neighborhood + 1, 2*neighborhood + 1);
+   // var oldImageData = context_old.getImageData(x_start - neighborhood, y_start - neighborhood, 2*neighborhood + 1, 2*neighborhood + 1);
+    //var newImageData = context_new.getImageData(x_start - neighborhood, y_start - neighborhood, 2*neighborhood + 1, 2*neighborhood + 1);
 
     let a = 0, b = 0, c = 0, d = 0, d1 = 0, d2 = 0;
 
-    for (let i = -neighborhood; i <= neighborhood; i++) {
-        for (let j = -neighborhood; j <= neighborhood; j++) {
+   // alert("first a is " + a);
+
+    for (let i = -neighborhood + 1; i <= neighborhood - 1; i++) {
+        for (let j = -neighborhood + 1; j <= neighborhood - 1; j++) {
             let cur_i = x_start + i;
             let cur_j = y_start + j;
             let newCoords = getNewCoords(x_start, y_start, cur_i, cur_j);
-            let weight = getGauss(newCoords.x, newCoords.y, 2);
+            let weight = getGauss(newCoords.x, newCoords.y, 0.2);
 
-            let x_deriv = getXDerivative(1, 1, oldImageData, newImageData, cur_i, cur_j);
-            let y_deriv = getYDerivative(1, 1, oldImageData, newImageData, cur_i, cur_j);
-            let t_deriv = getTDerivative(1, 1, oldImageData, newImageData, cur_i, cur_j);
+            let x_deriv = getXDerivative(1, 1, oldImageData, newImageData, newCoords.x, newCoords.y);
+            let y_deriv = getYDerivative(1, 1, oldImageData, newImageData, newCoords.x, newCoords.y);
+            let t_deriv = getTDerivative(1, 1, oldImageData, newImageData, newCoords.x, newCoords.y);
+
+            if (verbose)
+                alert('x_deriv is ' + x_deriv + ' y_deriv is ' + y_deriv + ' t_deriv is ' + t_deriv + ' i = ' + i + ' j = ' + j);
+
 
             a = a + weight * x_deriv * x_deriv;
             b = b + weight * x_deriv * y_deriv;
@@ -89,88 +133,100 @@ function found_move(context_old, context_new, x_start, y_start, neighborhood, ma
     }
     c = b;
 
+   // alert("a is " + a);
+
     let det = a*d - b*c;
     if (det === 0) {
         alert("det is 0");
         return {x: 0, y: 0};
+    } else {
+      //  alert("det is " + det);
     }
 
-    return {x: (d*d1 - b*d2) / det, y: (-c*d1 + a*d2) / det};   // Vector of movement
-}
+    let answer = {x: (d*d1 - b*d2) / det, y: (-c*d1 + a*d2) / det};
 
-var previous_image;
+    if (verbose)
+        alert('answer.x = ' + answer.x + ' , answer.y = ' + answer.y);
+
+
+    return answer;   // Vector of movement
+}
 
 window.onload = function () {
 
     let photo = document.getElementById('photo');
+    let photoOld = document.getElementById('photoprev');
+
+    let photoint = document.getElementById('photo');
+    let photoOldint = document.getElementById('photoprev');
+
     let canvas = document.getElementById('canvas');
+    let canvas1 = document.getElementById('canvas1');
+
+    let canvas2 = document.getElementById('canvas2');
+    let canvas3 = document.getElementById('canvas3');
+
     let video = document.getElementById('video');
     let capture_button = document.getElementById('capture_button');
-    let previous_button = document.getElementById('previous_image_button');
+   // let previous_button = document.getElementById('previous_image_button');
     let allow = document.getElementById('allow');
     let context = canvas.getContext('2d');
-    let videoStreamUrl = false;
+    let context1 = null; //canvas1.getContext('2d');
 
     // функция которая будет выполнена при нажатии на кнопку захвата кадра
     var captureMe = function () {
-        if (!videoStreamUrl) alert('Allow camera first!');
 
-        previous_image = photo.src;
-        photo.src = start(video,
+        if (context1) {
+            context.drawImage(video, 0, 0, video.width, video.height);
 
-            function(context, leftX, rightX, downY, upY) {
+            photo.src = canvas.toDataURL('image/png');
 
-                var myImageData = context.getImageData(leftX, downY, rightX - leftX, upY - downY);
-                var data = myImageData.data;
+            let future_previous = context.getImageData(0, 0, video.width, video.height);
 
-                var sum = 0;
+            let neighborhood = 30;
 
-                for (var i = 0; i < data.length; i += 4) {
-                    if (data[i] > 12*max(data[i + 1], data[i + 2]) / 7)
-                        sum += 1;
+           // alert('video width is ' + video.width);
+
+           // let i = 100;
+           // let j = 100;
+          //  let diff = found_move(context.getImageData(i - neighborhood, j - neighborhood, 2*neighborhood + 1, 2*neighborhood + 1),
+           //     context1.getImageData(i - neighborhood, j - neighborhood, 2*neighborhood + 1, 2*neighborhood + 1),
+           //     i, j, neighborhood, video.width, video.height);
+
+            for (let i = 0; i < video.width; i++) {
+                if (i % 50 === 0)
+                    console.log("current width", i);
+                for (let j = 0; j < video.height; j++) {
+                    let verbose = false;//i % 10 === 0 & j % 10 === 0;
+                    let diff = found_move(context.getImageData(i - neighborhood, j - neighborhood, 2*neighborhood + 1, 2*neighborhood + 1),
+                        context1.getImageData(i - neighborhood, j - neighborhood, 2*neighborhood + 1, 2*neighborhood + 1),
+                        i, j, neighborhood, video.width, video.height, verbose);
+
+
+                    if (i % 5 === 0 & j % 5 === 0)
+                        draw_strela(context, i, j, diff.x, diff.y);
                 }
+            }
 
-                var pixelCount = data.length / 4;
+            photoint.src = getHeatMap(canvas2, future_previous);
+            photoOldint.src = getHeatMap(canvas3, context1.getImageData(0, 0, video.width, video.height));
 
-                return sum > pixelCount * 9 / 10;
-            },
+            photo.src = canvas.toDataURL('image/png');
+            photoOld.src = canvas1.toDataURL('image/png');
 
-            function(context, left, right, bottom, top) {
+            context1.putImageData(future_previous, 0, 0);
+        } else {
+            context1 = canvas1.getContext('2d');
+            context1.drawImage(video, 0, 0, video.width, video.height);
+            photoOld.src = canvas1.toDataURL('image/png');
+        }
 
-                context.beginPath();
-                let midX = (left + right) / 2;
-                let midY = (bottom + top) / 2;
-                let lenX = right - left;
-                let lenY = top - bottom;
-                if (lenX < 0)
-                    return;
-                if (lenY < 0)
-                    return;
 
-                let t = min(lenX, lenY) / 2;
-
-                context.arc(midX, midY, t, 0, Math.PI*2, true); // Внешняя окружность
-
-                let bigRadius = (2*t)/3;
-
-                context.moveTo(midX + bigRadius, midY);
-
-                context.arc(midX, midY, bigRadius, 0, Math.PI, false);  // рот (по часовой стрелке)
-
-                let miniRadius = t / 8;
-
-                context.moveTo(midX - (t / 4) + miniRadius, midY - (t / 3));
-                context.arc(midX - (t / 4), midY - (t / 3), miniRadius, 0, Math.PI*2, true);  // Левый глаз
-                context.moveTo(midX + (t / 4) + miniRadius, midY - (t / 3));
-                context.arc(midX + (t / 4), midY - (t / 3), miniRadius, 0, Math.PI*2, true);  // Правый глаз
-                context.stroke();
-            });
     };
 
     capture_button.addEventListener('click', captureMe);
 
     navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
-    //window.URL.createObjectURL = window.URL.createObjectURL || window.URL.webkitCreateObjectURL || window.URL.mozCreateObjectURL || window.URL.msCreateObjectURL;
 
     navigator.getUserMedia({video: true}, function (stream) {
         allow.style.display = "none";
@@ -180,34 +236,3 @@ window.onload = function () {
         alert('Oh, i am sorry, did i break your concentration? TURN THE CAMERA ON!');
     });
 };
-
-function start(video, find_callback, mark_callback) {
-
-    let context = canvas.getContext('2d');
-    context.drawImage(video, 0, 0, video.width, video.height);
-
-
-    let maxWidth = video.width;
-    let maxHeigth = video.height;
-    let max = min(maxHeigth, maxWidth);
-
-
-    for (var currentSize = 30; currentSize < max; currentSize = currentSize + 40) {
-
-        let step = currentSize / 4;
-
-        for (var x = 0; x < maxWidth; x = x + step) {
-            for (var y = 0; y < maxHeigth; y = y + step) {
-                let leftX = x;
-                let rightX = x + currentSize;
-                let downY = y;
-                let upY = y + currentSize;
-                if (find_callback(context, leftX, rightX, downY, upY)) {
-                    mark_callback(context, leftX, rightX, downY, upY);
-                }
-            }
-        }
-    }
-
-    return canvas.toDataURL('image/png');
-}

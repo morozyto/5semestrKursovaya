@@ -1,28 +1,40 @@
 #video {
     border: 1px solid black;
     box-shadow: 2px 2px 3px black;
-    width:320px;
-    height:240px;
+    width:800px;
+    height:800px;
 }
-
+/*
 #photo {
     border: 1px solid black;
     box-shadow: 2px 2px 3px black;
     width:320px;
     height:240px;
 }
-
+*/
 #canvas {
     display:none;
 }
 
+#canvas1 {
+    display:none;
+}
+
+#canvas2 {
+    display:none;
+}
+
+#canvas3 {
+    display:none;
+}
+
 .camera {
-    width: 340px;
+    width: 800px;
     display:inline-block;
 }
 
 .output {
-    width: 340px;
+    width: 800px;
     display:inline-block;
 }
 
@@ -43,5 +55,5 @@
 .contentarea {
     font-size: 16px;
     font-family: "Lucida Grande", "Arial", sans-serif;
-    width: 760px;
+    width: 800px;
 }
