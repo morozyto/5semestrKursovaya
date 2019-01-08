@@ -114,11 +114,11 @@ window.onload = function () {
     let context = canvas.getContext('2d');
     let context1 = null; //canvas1.getContext('2d');
 
-    var captureMe = function () {
+    let captureMe = function () {
 
         if (context1) {
 
-            var time = performance.now();  // позволяет посчитать перфоманс обработки одного кадра
+            let time = performance.now();  // позволяет посчитать перфоманс обработки одного кадра
 
             context.drawImage(video, 0, 0, video.width, video.height);
 
