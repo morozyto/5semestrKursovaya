@@ -100,31 +100,29 @@ function found_move(get_deriv, x_start, y_start, neighborhood, maxWidth, maxHeig
 
 window.onload = function () {
 
-    let photo = document.getElementById('photo');
-    let photoOld = document.getElementById('photoprev');
+    const photo = document.getElementById('photo');
+    const photoOld = document.getElementById('photoprev');
+
+    const canvas = document.getElementById('canvas');
+    const canvas1 = document.getElementById('canvas1');
 
 
-    let canvas = document.getElementById('canvas');
-    let canvas1 = document.getElementById('canvas1');
-
-
-    let video = document.getElementById('video');
-    let capture_button = document.getElementById('capture_button');
-    let allow = document.getElementById('allow');
-    let context = canvas.getContext('2d');
+    const video = document.getElementById('video');
+    const allow = document.getElementById('allow');
+    const context = canvas.getContext('2d');
     let context1 = null; //canvas1.getContext('2d');
 
-    let captureMe = function () {
+    const captureMe = function () {
 
         if (context1) {
 
-            let time = performance.now();  // позволяет посчитать перфоманс обработки одного кадра
+            const start_time = performance.now();  // позволяет посчитать перфоманс обработки одного кадра
 
             context.drawImage(video, 0, 0, video.width, video.height);
 
             photo.src = canvas.toDataURL('image/png');
 
-            let future_previous = context.getImageData(0, 0, video.width, video.height);
+            const future_previous = context.getImageData(0, 0, video.width, video.height);
             let is = [];
             let derivs = [];
 
@@ -154,7 +152,7 @@ window.onload = function () {
                 }
             }
 
-            let current_previuos = context1.getImageData(0, 0, video.width, video.height);
+            const current_previuos = context1.getImageData(0, 0, video.width, video.height);
             let is_old = [];
 
             let get_val_old = function(index) {
@@ -195,7 +193,7 @@ window.onload = function () {
             }
 
             let weights = [];
-            let neighborhood = 10; // окрестность, в которой будем искать движения пикселя
+            const neighborhood = 10; // окрестность, в которой будем искать движения пикселя
 
             for (let i = -neighborhood; i <= neighborhood - 1; i++) {
                 for (let j = -neighborhood; j <= neighborhood - 1; j++) {
@@ -212,13 +210,13 @@ window.onload = function () {
 
             let progress = 0.;
             for (let i = 0; i < video.width; i++) {
-                let currentProgress = Math.trunc(100 * (i / video.width));
+                const currentProgress = Math.trunc(100 * (i / video.width));
                 if (currentProgress > progress) {
                     console.log("current progress ", currentProgress);
                     progress = currentProgress;
                 }
                 for (let j = 0; j < video.height; j++) {
-                    let diff = found_move(get_deriv, i, j, neighborhood, video.width, video.height, get_weight);
+                    const diff = found_move(get_deriv, i, j, neighborhood, video.width, video.height, get_weight);
 
                     if (i % 5 === 0 & j % 5 === 0)
                         draw_strela(context, i, j, diff.x, diff.y);
@@ -231,8 +229,7 @@ window.onload = function () {
 
             context1.putImageData(future_previous, 0, 0);
 
-            time = performance.now() - time;
-            console.log('Время выполнения = ', time);
+            console.log('Время выполнения = ', performance.now() - start_time);
         } else {
             context1 = canvas1.getContext('2d');
             context1.drawImage(video, 0, 0, video.width, video.height);
