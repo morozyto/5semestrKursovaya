@@ -22,7 +22,7 @@ function draw_strela(ctx, x_start, y_start, dx, dy) {
 Метод вычисляет значение функции гаусса для заданных координат
 */
 function getGauss(new_x, new_y) {
-    let otklonenie = 0.2;
+    const otklonenie = 0.2;
     return (1. / (Math.sqrt(2*Math.PI) * otklonenie)) * Math.exp(- (new_x*new_x + new_y*new_y) / 2*otklonenie*otklonenie);
 }
 
@@ -67,16 +67,16 @@ function found_move(get_deriv, x_start, y_start, neighborhood, maxWidth, maxHeig
 
     for (let i = -neighborhood; i <= neighborhood - 1; i++) {
         for (let j = -neighborhood; j <= neighborhood - 1; j++) {
-            let cur_i = x_start + i;
-            let cur_j = y_start + j;
-            let weight = get_weight(i, j);
+            const cur_i = x_start + i;
+            const cur_j = y_start + j;
+            const weight = get_weight(i, j);
 
-            let x_deriv = get_deriv(cur_i, cur_j, 0);
-            let y_deriv = get_deriv(cur_i, cur_j, 1);
-            let t_deriv = get_deriv(cur_i, cur_j, 2);
+            const x_deriv = get_deriv(cur_i, cur_j, 0);
+            const y_deriv = get_deriv(cur_i, cur_j, 1);
+            const t_deriv = get_deriv(cur_i, cur_j, 2);
 
-            let t1 = weight * x_deriv;
-            let t2 = weight * y_deriv;
+            const t1 = weight * x_deriv;
+            const t2 = weight * y_deriv;
 
             a = a + t1 * x_deriv;
             b = b + t1 * y_deriv;
@@ -88,14 +88,12 @@ function found_move(get_deriv, x_start, y_start, neighborhood, maxWidth, maxHeig
     }
     c = b;
 
-    let det = a*d - b*c;
+    const det = a*d - b*c;
     if (det === 0) {
         return {x: 0, y: 0};
     }
 
-    let answer = {x: (d*d1 - b*d2) / det, y: (-c*d1 + a*d2) / det};
-
-    return answer;   // Vector of movement
+    return {x: (d*d1 - b*d2) / det, y: (-c*d1 + a*d2) / det};// Vector of movement
 }
 
 window.onload = function () {
