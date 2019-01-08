@@ -1,23 +1,9 @@
 "use strict";
 
-function min(a, b) {
-    if (a > b)
-        return b;
-    return a;
-}
-
-function max(a, b) {
-    if (a > b)
-        return a;
-    return b;
-}
-
-function abs(a) {
-    if (a > 0)
-        return a;
-    return -a;
-}
-
+/*
+Метод отрисовывает "стрелку" (черный отрезок с оранжевым наконечником).
+Аргументами задается контекст, координаты начала стрелки, длина ее проекции на оси
+*/
 function draw_strela(ctx, x_start, y_start, dx, dy) {
     ctx.strokeStyle = "black";
     ctx.beginPath();
@@ -32,26 +18,47 @@ function draw_strela(ctx, x_start, y_start, dx, dy) {
     ctx.stroke();
 }
 
-function getGauss(new_x, new_y, otklonenie) {
+/*
+Метод вычисляет значение функции гаусса для заданных координат
+*/
+function getGauss(new_x, new_y) {
+    let otklonenie = 0.2;
     return (1. / (Math.sqrt(2*Math.PI) * otklonenie)) * Math.exp(- (new_x*new_x + new_y*new_y) / 2*otklonenie*otklonenie);
 }
 
+/*
+Метод вычисляет производную оптического потока по координате x
+*/
 function getXDerivative(dx, dy, get_i_old, get_i, i, j) {
     return (1. / 4.) * dx * ((get_i_old(i + dx, j) + get_i_old(i + dx, j + dy) + get_i(i + dx, j) + get_i(i + dx, j + dy))
         - (get_i_old(i, j) + get_i_old(i, j + dy) + get_i(i, j) + get_i(i, j + dy)));
 }
 
+/*
+Метод вычисляет производную оптического потока по координате y
+*/
 function getYDerivative(dx, dy, get_i_old, get_i, i, j) {
     return (1. / 4.) * dy * ((get_i_old(i, j + dy) + get_i_old(i + dx, j + dy) + get_i(i, j + dy) + get_i(i + dx, j + dy))
         - (get_i_old(i, j) + get_i_old(i + dx, j) + get_i(i, j) + get_i(i + dx, j)));
 }
 
+/*
+Метод вычисляет производную оптического потока по времени
+*/
 function getTDerivative(dx, dy, get_i_old, get_i, i, j) {
     return (1. / 4.) * ((get_i(i, j) + get_i(i + dx, j) + get_i(i, j + dy) + get_i(i + dx, j + dy))
         - (get_i_old(i, j) + get_i_old(i + dx, j) + get_i_old(i, j + dy) + get_i_old(i + dx, j + dy)));
 }
 
-function found_move(get_deriv, x_start, y_start, neighborhood, maxWidth, maxHeight, verbose, get_weight) {
+/*
+Метод вычисляет вектор движения пикселя между кадрами.
+Аргументами передается @get_deriv - лямбда, которая хранит посчитанные производные для данной точки,
+                       @x_start, @y_star - координаты точки
+                       @neighborhood - окрестность, для которой искать движение
+                       @maxWidth, @maxHeight - размеры окна
+                       @get_weight - лямбда, которая хранит посчитанные веса
+*/
+function found_move(get_deriv, x_start, y_start, neighborhood, maxWidth, maxHeight, get_weight) {
 
     if (x_start < neighborhood || y_start < neighborhood || (maxWidth - x_start) <= neighborhood || (maxHeight - y_start) <= neighborhood)
         return {x: 0, y: 0};
@@ -67,9 +74,6 @@ function found_move(get_deriv, x_start, y_start, neighborhood, maxWidth, maxHeig
             let x_deriv = get_deriv(cur_i, cur_j, 0);
             let y_deriv = get_deriv(cur_i, cur_j, 1);
             let t_deriv = get_deriv(cur_i, cur_j, 2);
-
-            if (verbose)
-                alert('x_deriv is ' + x_deriv + ' y_deriv is ' + y_deriv + ' t_deriv is ' + t_deriv + ' i = ' + i + ' j = ' + j);
 
             let t1 = weight * x_deriv;
             let t2 = weight * y_deriv;
@@ -91,10 +95,6 @@ function found_move(get_deriv, x_start, y_start, neighborhood, maxWidth, maxHeig
 
     let answer = {x: (d*d1 - b*d2) / det, y: (-c*d1 + a*d2) / det};
 
-    if (verbose)
-        alert('answer.x = ' + answer.x + ' , answer.y = ' + answer.y);
-
-
     return answer;   // Vector of movement
 }
 
@@ -114,17 +114,17 @@ window.onload = function () {
     let context = canvas.getContext('2d');
     let context1 = null; //canvas1.getContext('2d');
 
-    // функция которая будет выполнена при нажатии на кнопку захвата кадра
-
     var captureMe = function () {
 
         if (context1) {
+
+            var time = performance.now();  // позволяет посчитать перфоманс обработки одного кадра
+
             context.drawImage(video, 0, 0, video.width, video.height);
 
             photo.src = canvas.toDataURL('image/png');
 
             let future_previous = context.getImageData(0, 0, video.width, video.height);
-         //   photoint.src = getHeatMap(canvas2, future_previous);
             let is = [];
             let derivs = [];
 
@@ -178,9 +178,6 @@ window.onload = function () {
                 }
             }
 
-            let neighborhood = 10;
-
-
             for (let i = 0; i < video.width - 1; i++) {
 
                 for (let j = 0; j < video.height - 1; j++) {
@@ -198,11 +195,12 @@ window.onload = function () {
             }
 
             let weights = [];
+            let neighborhood = 10; // окрестность, в которой будем искать движения пикселя
 
             for (let i = -neighborhood; i <= neighborhood - 1; i++) {
                 for (let j = -neighborhood; j <= neighborhood - 1; j++) {
 
-                    weights[j*neighborhood + i] = getGauss(i, j, 0.2);
+                    weights[j*neighborhood + i] = getGauss(i, j);
 
                 }
             }
@@ -211,24 +209,30 @@ window.onload = function () {
                 return weights[y*neighborhood + x];
             };
 
+
+            let progress = 0.;
             for (let i = 0; i < video.width; i++) {
-                if (i % 50 === 0)
-                    console.log("current width", i);
+                let currentProgress = Math.trunc(100 * (i / video.width));
+                if (currentProgress > progress) {
+                    console.log("current progress ", currentProgress);
+                    progress = currentProgress;
+                }
                 for (let j = 0; j < video.height; j++) {
-                    let verbose = false;//i % 10 === 0 & j % 10 === 0;
-                    let diff = found_move(get_deriv, i, j, neighborhood, video.width, video.height, verbose, get_weight);
+                    let diff = found_move(get_deriv, i, j, neighborhood, video.width, video.height, get_weight);
 
                     if (i % 5 === 0 & j % 5 === 0)
                         draw_strela(context, i, j, diff.x, diff.y);
                 }
             }
-
-          //  photoOldint.src = getHeatMap(canvas3, context1.getImageData(0, 0, video.width, video.height));
+            console.log("completed!");
 
             photo.src = canvas.toDataURL('image/png');
             photoOld.src = canvas1.toDataURL('image/png');
 
             context1.putImageData(future_previous, 0, 0);
+
+            time = performance.now() - time;
+            console.log('Время выполнения = ', time);
         } else {
             context1 = canvas1.getContext('2d');
             context1.drawImage(video, 0, 0, video.width, video.height);
