@@ -1,5 +1,70 @@
 "use strict";
 
+function min(a, b) {
+    if (a > b)
+        return b;
+    else
+        return a;
+}
+
+function max(a, b) {
+    if (a > b)
+        return a;
+    else
+        return b;
+}
+
+function is_red(context, leftX, rightX, downY, upY) {
+
+    var myImageData = context.getImageData(leftX, downY, rightX - leftX, upY - downY);
+    var data = myImageData.data;
+
+    var sum = 0;
+
+    for (var i = 0; i < data.length; i += 4) {
+        if (data[i] > 3*max(data[i + 1], data[i + 2]) / 2)
+            sum += 1;
+    }
+
+    var pixelCount = data.length / 4;
+
+    return sum > pixelCount * 99 / 100;
+}
+
+function smile(context, left, right, bottom, top) {
+
+    context.beginPath();
+    let midX = (left + right) / 2;
+    let midY = (bottom + top) / 2;
+    let lenX = right - left;
+    let lenY = top - bottom;
+    if (lenX < 0)
+        return;
+    if (lenY < 0)
+        return;
+
+    let t = min(lenX, lenY) / 2;
+
+    context.arc(midX, midY, t, 0, Math.PI*2, true); // Внешняя окружность
+
+    let bigRadius = (2*t)/3;
+
+    context.moveTo(midX + bigRadius, midY);
+
+    context.arc(midX, midY, bigRadius, 0, Math.PI, false);  // рот (по часовой стрелке)
+
+    let miniRadius = t / 8;
+
+    context.moveTo(midX - (t / 4) + miniRadius, midY - (t / 3));
+    context.arc(midX - (t / 4), midY - (t / 3), miniRadius, 0, Math.PI*2, true);  // Левый глаз
+    context.moveTo(midX + (t / 4) + miniRadius, midY - (t / 3));
+    context.arc(midX + (t / 4), midY - (t / 3), miniRadius, 0, Math.PI*2, true);  // Правый глаз
+    context.stroke();
+}
+
+
+
+
 /*
 Метод отрисовывает "стрелку" (черный отрезок с оранжевым наконечником).
 Аргументами задается контекст, координаты начала стрелки, длина ее проекции на оси
@@ -110,9 +175,12 @@ window.onload = function () {
     const context = canvas.getContext('2d');
     let context1 = null; //canvas1.getContext('2d');
 
+    let x0 = null, x1 = null, y0 = null, y1 = null;
+    let found = false;
+
     const captureMe = function () {
 
-        if (context1) {
+        if (context1 && found) {
 
             const start_time = performance.now();  // позволяет посчитать перфоманс обработки одного кадра
 
@@ -124,16 +192,16 @@ window.onload = function () {
             let is = [];
             let derivs = [];
 
-            let get_val = function(index) {
+            let get_val = function (index) {
                 return future_previous.data[index];
             };
 
-            let get_i = function(x, y) {
-                return is[y*video.width + x];
+            let get_i = function (x, y) {
+                return is[y * video.width + x];
             };
 
-            let get_deriv = function(x, y, offset) {
-                return derivs[y*video.width*3 + x*3 + offset];
+            let get_deriv = function (x, y, offset) {
+                return derivs[y * video.width * 3 + x * 3 + offset];
             };
 
             for (let i = 0; i < video.width; i++) {
@@ -145,20 +213,20 @@ window.onload = function () {
                     let R = get_val(index + 0);
                     let G = get_val(index + 1);
                     let B = get_val(index + 2);
-                    let I = 0.2126*R + 0.7152*G + 0.0722*B;
-                    is[j*video.width + i] = I;
+                    let I = 0.2126 * R + 0.7152 * G + 0.0722 * B;
+                    is[j * video.width + i] = I;
                 }
             }
 
             const current_previuos = context1.getImageData(0, 0, video.width, video.height);
             let is_old = [];
 
-            let get_val_old = function(index) {
+            let get_val_old = function (index) {
                 return current_previuos.data[index];
             };
 
-            let get_i_old = function(x, y) {
-                return is_old[y*video.width + x];
+            let get_i_old = function (x, y) {
+                return is_old[y * video.width + x];
             };
 
             for (let i = 0; i < video.width; i++) {
@@ -169,8 +237,8 @@ window.onload = function () {
                     let R = get_val_old(index + 0);
                     let G = get_val_old(index + 1);
                     let B = get_val_old(index + 2);
-                    let I = 0.2126*R + 0.7152*G + 0.0722*B;
-                    is_old[j*video.width + i] = I;
+                    let I = 0.2126 * R + 0.7152 * G + 0.0722 * B;
+                    is_old[j * video.width + i] = I;
                 }
             }
 
@@ -182,7 +250,7 @@ window.onload = function () {
                     let y_deriv = getYDerivative(1, 1, get_i_old, get_i, i, j);
                     let t_deriv = getTDerivative(1, 1, get_i_old, get_i, i, j);
 
-                    let index = j*video.width*3 + i*3;
+                    let index = j * video.width * 3 + i * 3;
 
                     derivs[index + 0] = x_deriv;
                     derivs[index + 1] = y_deriv;
@@ -196,31 +264,38 @@ window.onload = function () {
             for (let i = -neighborhood; i <= neighborhood - 1; i++) {
                 for (let j = -neighborhood; j <= neighborhood - 1; j++) {
 
-                    weights[j*neighborhood + i] = getGauss(i, j);
+                    weights[j * neighborhood + i] = getGauss(i, j);
 
                 }
             }
 
-            let get_weight = function(x, y) {
-                return weights[y*neighborhood + x];
+            let get_weight = function (x, y) {
+                return weights[y * neighborhood + x];
             };
 
+            let count = 0;
+            let averageX = 0, averageY = 0;
+            for (let i = x0; i < x1; i++) {
 
-            let progress = 0.;
-            for (let i = 0; i < video.width; i++) {
-                const currentProgress = Math.trunc(100 * (i / video.width));
-                if (currentProgress > progress) {
-                    console.log("current progress ", currentProgress);
-                    progress = currentProgress;
-                }
-                for (let j = 0; j < video.height; j++) {
+                for (let j = y0; j < y1; j++) {
                     const diff = found_move(get_deriv, i, j, neighborhood, video.width, video.height, get_weight);
+
+                    count++;
+                    averageX += 2*diff.x;
+                    averageY += 2*diff.y;
 
                     if (i % 5 === 0 & j % 5 === 0)
                         draw_strela(context, i, j, diff.x, diff.y);
                 }
             }
-            console.log("completed!");
+
+            averageX = Math.trunc(averageX / count);
+            averageY = Math.trunc(averageY / count);
+
+            x0 += averageX;
+            x1 += averageX;
+            y0 += averageY;
+            y1 += averageY;
 
             photo.src = canvas.toDataURL('image/png');
             photoOld.src = canvas1.toDataURL('image/png');
@@ -229,11 +304,44 @@ window.onload = function () {
 
             console.log('Время выполнения = ', performance.now() - start_time);
         } else {
+
             context1 = canvas1.getContext('2d');
             context1.drawImage(video, 0, 0, video.width, video.height);
-            photoOld.src = canvas1.toDataURL('image/png');
-        }
 
+            let maxWidth = video.width;
+            let maxHeigth = video.height;
+            let max = min(maxHeigth, maxWidth);
+
+            const buffer = context1.getImageData(0, 0, video.width, video.height);
+
+            const currentSize = Math.trunc(max / 10);
+
+            let step = Math.trunc(currentSize / 4);
+
+            for (let x = 0; x + currentSize < maxWidth; x = x + step) {
+                for (let y = 0; y + currentSize < maxHeigth; y = y + step) {
+                    let leftX = x;
+                    let rightX = x + currentSize;
+                    let downY = y;
+                    let upY = y + currentSize;
+                    if (is_red(context1, leftX, rightX, downY, upY)) {
+                        x0 = leftX;
+                        x1 = rightX;
+                        y0 = downY;
+                        y1 = upY;
+                        smile(context1, leftX, rightX, downY, upY);
+                        found = true;
+                        break;
+                    }
+                }
+            }
+
+            photoOld.src = canvas1.toDataURL('image/png');
+
+            if (found) {
+                context1.putImageData(buffer, 0, 0);
+            }
+        }
 
     };
 
@@ -249,6 +357,6 @@ window.onload = function () {
 
      setTimeout(function run() {
          captureMe();
-         setTimeout(run, 1);
+         setTimeout(run, 200);
      }, 1000);
 };

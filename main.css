@@ -1,8 +1,8 @@
 #video {
     border: 1px solid black;
     box-shadow: 2px 2px 3px black;
-    width:100px;
-    height:100px;
+    width:200px;
+    height:200px;
 }
 /*
 #photo {
@@ -29,12 +29,12 @@
 }
 
 .camera {
-    width: 100px;
+    width: 200px;
     display:inline-block;
 }
 
 .output {
-    width: 100px;
+    width: 200px;
     display:inline-block;
 }
 
