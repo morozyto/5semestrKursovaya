@@ -63,8 +63,6 @@ function smile(context, left, right, bottom, top) {
 }
 
 
-
-
 /*
 Метод отрисовывает "стрелку" (черный отрезок с оранжевым наконечником).
 Аргументами задается контекст, координаты начала стрелки, длина ее проекции на оси
@@ -132,13 +130,18 @@ function found_move(get_deriv, x_start, y_start, neighborhood, maxWidth, maxHeig
 
     for (let i = -neighborhood; i <= neighborhood - 1; i++) {
         for (let j = -neighborhood; j <= neighborhood - 1; j++) {
+
             const cur_i = x_start + i;
             const cur_j = y_start + j;
             const weight = get_weight(i, j);
 
+          //  console.log('found move is ', cur_i, ' ', cur_j, ' ', weight);
+
             const x_deriv = get_deriv(cur_i, cur_j, 0);
             const y_deriv = get_deriv(cur_i, cur_j, 1);
             const t_deriv = get_deriv(cur_i, cur_j, 2);
+
+         //   console.log('found move is ', x_deriv, ' ', y_deriv, ' ', t_deriv);
 
             const t1 = weight * x_deriv;
             const t2 = weight * y_deriv;
@@ -178,10 +181,39 @@ window.onload = function () {
     let x0 = null, x1 = null, y0 = null, y1 = null;
     let found = false;
 
+    let weights = [];
+    const neighborhood = 10; // окрестность, в которой будем искать движения пикселя
+    const derivativeNeighborhoodX = 1;
+    const derivativeNeighborhoodY = 1;
+
+    const maxFramesCountWithoutRecognition = 10;
+
+    for (let i = -neighborhood; i <= neighborhood - 1; i++) {
+        for (let j = -neighborhood; j <= neighborhood - 1; j++) {
+
+            weights[j * neighborhood + i] = getGauss(i, j);
+
+        }
+    }
+
+
+    let get_weight = function (x, y) {
+        return weights[y * neighborhood + x];
+    };
+
+    let frameCount = 0;
+    const objects = [];
+
     const captureMe = function () {
+
+        if (found && frameCount >= maxFramesCountWithoutRecognition) {
+            found = false;
+            frameCount = 0;
+        }
 
         if (context1 && found) {
 
+            frameCount = frameCount + 1;
             const start_time = performance.now();  // позволяет посчитать перфоманс обработки одного кадра
 
             context.drawImage(video, 0, 0, video.width, video.height);
@@ -189,68 +221,66 @@ window.onload = function () {
             photo.src = canvas.toDataURL('image/png');
 
             const future_previous = context.getImageData(0, 0, video.width, video.height);
-            let is = [];
-            let derivs = [];
+            const is = [];
+            const derivs = [];
 
-            let get_val = function (index) {
+            const get_val = function (index) {
                 return future_previous.data[index];
             };
 
-            let get_i = function (x, y) {
+            const get_i = function (x, y) {
                 return is[y * video.width + x];
             };
 
-            let get_deriv = function (x, y, offset) {
+            const get_deriv = function (x, y, offset) {
                 return derivs[y * video.width * 3 + x * 3 + offset];
             };
 
-            for (let i = 0; i < video.width; i++) {
-
-                for (let j = 0; j < video.height; j++) {
-
-                    let index = (j * (video.width * 4)) + (i * 4);
-
-                    let R = get_val(index + 0);
-                    let G = get_val(index + 1);
-                    let B = get_val(index + 2);
-                    let I = 0.2126 * R + 0.7152 * G + 0.0722 * B;
-                    is[j * video.width + i] = I;
-                }
-            }
 
             const current_previuos = context1.getImageData(0, 0, video.width, video.height);
-            let is_old = [];
+            const is_old = [];
 
-            let get_val_old = function (index) {
+            const get_val_old = function (index) {
                 return current_previuos.data[index];
             };
 
-            let get_i_old = function (x, y) {
+            const get_i_old = function (x, y) {
                 return is_old[y * video.width + x];
             };
 
-            for (let i = 0; i < video.width; i++) {
+            const count_I = function(value_getter, start_index) {
+                const R = value_getter(start_index + 0);
+                const G = value_getter(start_index + 1);
+                const B = value_getter(start_index + 2);
+                return 0.2126 * R + 0.7152 * G + 0.0722 * B;
+            }
 
-                for (let j = 0; j < video.height; j++) {
+            const minXIndex = max(x0 - neighborhood, 0);
+            const minYIndex = max(y0 - neighborhood, 0);
+            const maxXIndex = min(x1 + derivativeNeighborhoodX + neighborhood, video.width);
+            const maxYIndex = min(y1 + derivativeNeighborhoodY + neighborhood, video.height);
 
-                    let index = (j * (video.width * 4)) + (i * 4);
-                    let R = get_val_old(index + 0);
-                    let G = get_val_old(index + 1);
-                    let B = get_val_old(index + 2);
-                    let I = 0.2126 * R + 0.7152 * G + 0.0722 * B;
-                    is_old[j * video.width + i] = I;
+            for (let i = minXIndex; i < maxXIndex; i++) {
+                for (let j = minYIndex; j < maxYIndex; j++) {
+
+                    const index = j * video.width + i;
+                    const pixelIndex = index*4;
+
+                    is[index] = count_I(get_val, pixelIndex);
+                    is_old[index] = count_I(get_val_old, pixelIndex);
                 }
             }
 
-            for (let i = 0; i < video.width - 1; i++) {
+            const minX = max(0, x0 - neighborhood), maxX = min(video.width - derivativeNeighborhoodX, x1 + neighborhood);
+            const minY = max(0, y0 - neighborhood), maxY = min(video.height - derivativeNeighborhoodY, y1 + neighborhood);
 
-                for (let j = 0; j < video.height - 1; j++) {
+            for (let i = minX; i < maxX; i++) {
+                for (let j = minY; j < maxY; j++) {
+                    const x_deriv = getXDerivative(derivativeNeighborhoodX, derivativeNeighborhoodY, get_i_old, get_i, i, j);
+                    const y_deriv = getYDerivative(derivativeNeighborhoodX, derivativeNeighborhoodY, get_i_old, get_i, i, j);
+                    const t_deriv = getTDerivative(derivativeNeighborhoodX, derivativeNeighborhoodY, get_i_old, get_i, i, j);
 
-                    let x_deriv = getXDerivative(1, 1, get_i_old, get_i, i, j);
-                    let y_deriv = getYDerivative(1, 1, get_i_old, get_i, i, j);
-                    let t_deriv = getTDerivative(1, 1, get_i_old, get_i, i, j);
-
-                    let index = j * video.width * 3 + i * 3;
+                    const index = j * video.width * 3 + i * 3;
 
                     derivs[index + 0] = x_deriv;
                     derivs[index + 1] = y_deriv;
@@ -258,33 +288,18 @@ window.onload = function () {
                 }
             }
 
-            let weights = [];
-            const neighborhood = 10; // окрестность, в которой будем искать движения пикселя
-
-            for (let i = -neighborhood; i <= neighborhood - 1; i++) {
-                for (let j = -neighborhood; j <= neighborhood - 1; j++) {
-
-                    weights[j * neighborhood + i] = getGauss(i, j);
-
-                }
-            }
-
-            let get_weight = function (x, y) {
-                return weights[y * neighborhood + x];
-            };
-
             let count = 0;
             let averageX = 0, averageY = 0;
             for (let i = x0; i < x1; i++) {
-
                 for (let j = y0; j < y1; j++) {
+
                     const diff = found_move(get_deriv, i, j, neighborhood, video.width, video.height, get_weight);
 
                     count++;
-                    averageX += 2*diff.x;
-                    averageY += 2*diff.y;
+                    averageX += diff.x;
+                    averageY += diff.y;
 
-                    if (i % 5 === 0 & j % 5 === 0)
+                    if (i % 5 === 0 && j % 5 === 0)
                         draw_strela(context, i, j, diff.x, diff.y);
                 }
             }
@@ -308,22 +323,22 @@ window.onload = function () {
             context1 = canvas1.getContext('2d');
             context1.drawImage(video, 0, 0, video.width, video.height);
 
-            let maxWidth = video.width;
-            let maxHeigth = video.height;
-            let max = min(maxHeigth, maxWidth);
+            const maxWidth = video.width;
+            const maxHeigth = video.height;
+            const max = min(maxHeigth, maxWidth);
 
             const buffer = context1.getImageData(0, 0, video.width, video.height);
 
             const currentSize = Math.trunc(max / 10);
 
-            let step = Math.trunc(currentSize / 4);
+            const step = Math.trunc(currentSize / 4);
 
             for (let x = 0; x + currentSize < maxWidth; x = x + step) {
                 for (let y = 0; y + currentSize < maxHeigth; y = y + step) {
-                    let leftX = x;
-                    let rightX = x + currentSize;
-                    let downY = y;
-                    let upY = y + currentSize;
+                    const leftX = x;
+                    const rightX = x + currentSize;
+                    const downY = y;
+                    const upY = y + currentSize;
                     if (is_red(context1, leftX, rightX, downY, upY)) {
                         x0 = leftX;
                         x1 = rightX;
@@ -334,6 +349,9 @@ window.onload = function () {
                         break;
                     }
                 }
+                if (found) {
+                    break;
+                }
             }
 
             photoOld.src = canvas1.toDataURL('image/png');
@@ -342,7 +360,6 @@ window.onload = function () {
                 context1.putImageData(buffer, 0, 0);
             }
         }
-
     };
 
     navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
