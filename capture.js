@@ -28,7 +28,7 @@ function is_red(context, leftX, rightX, downY, upY) {
 
     var pixelCount = data.length / 4;
 
-    return sum > pixelCount * 99 / 100;
+    return sum > pixelCount * 80 / 100;
 }
 
 function smile(context, left, right, bottom, top) {
@@ -135,13 +135,9 @@ function found_move(get_deriv, x_start, y_start, neighborhood, maxWidth, maxHeig
             const cur_j = y_start + j;
             const weight = get_weight(i, j);
 
-          //  console.log('found move is ', cur_i, ' ', cur_j, ' ', weight);
-
             const x_deriv = get_deriv(cur_i, cur_j, 0);
             const y_deriv = get_deriv(cur_i, cur_j, 1);
             const t_deriv = get_deriv(cur_i, cur_j, 2);
-
-         //   console.log('found move is ', x_deriv, ' ', y_deriv, ' ', t_deriv);
 
             const t1 = weight * x_deriv;
             const t2 = weight * y_deriv;
@@ -164,6 +160,20 @@ function found_move(get_deriv, x_start, y_start, neighborhood, maxWidth, maxHeig
     return {x: (d*d1 - b*d2) / det, y: (-c*d1 + a*d2) / det};// Vector of movement
 }
 
+function check_intersection(obj1, obj2) {
+    const x00 = obj1['leftx'];
+    const x10 = obj1['rightx'];
+    const y00 = obj1['downy'];
+    const y10 = obj1['upy'];
+
+    const x01 = obj2['leftx'];
+    const x11 = obj2['rightx'];
+    const y01 = obj2['downy'];
+    const y11 = obj2['upy'];
+
+    return !(y00 >= y11 || y10 <= y01 || x10 <= x01 || x11 <= x00);
+}
+
 window.onload = function () {
 
     const photo = document.getElementById('photo');
@@ -178,13 +188,11 @@ window.onload = function () {
     const context = canvas.getContext('2d');
     let context1 = null; //canvas1.getContext('2d');
 
-    let x0 = null, x1 = null, y0 = null, y1 = null;
-    let found = false;
-
     let weights = [];
     const neighborhood = 10; // окрестность, в которой будем искать движения пикселя
     const derivativeNeighborhoodX = 1;
     const derivativeNeighborhoodY = 1;
+    const maxObjects = 3;
 
     const maxFramesCountWithoutRecognition = 10;
 
@@ -206,12 +214,12 @@ window.onload = function () {
 
     const captureMe = function () {
 
-        if (found && frameCount >= maxFramesCountWithoutRecognition) {
-            found = false;
+        if (objects && frameCount >= maxFramesCountWithoutRecognition) {
+            objects.length = 0;
             frameCount = 0;
         }
 
-        if (context1 && found) {
+        if (context1 && objects.length !== 0 && maxObjects !== 0) {
 
             frameCount = frameCount + 1;
             const start_time = performance.now();  // позволяет посчитать перфоманс обработки одного кадра
@@ -253,64 +261,72 @@ window.onload = function () {
                 const G = value_getter(start_index + 1);
                 const B = value_getter(start_index + 2);
                 return 0.2126 * R + 0.7152 * G + 0.0722 * B;
-            }
+            };
 
-            const minXIndex = max(x0 - neighborhood, 0);
-            const minYIndex = max(y0 - neighborhood, 0);
-            const maxXIndex = min(x1 + derivativeNeighborhoodX + neighborhood, video.width);
-            const maxYIndex = min(y1 + derivativeNeighborhoodY + neighborhood, video.height);
+            for (let i = 0; i < objects.length; i++) {
+                const object = objects[i];
 
-            for (let i = minXIndex; i < maxXIndex; i++) {
-                for (let j = minYIndex; j < maxYIndex; j++) {
+                const x0 = object['leftx'];
+                const x1 = object['rightx'];
+                const y0 = object['downy'];
+                const y1 = object['upy'];
 
-                    const index = j * video.width + i;
-                    const pixelIndex = index*4;
+                const minXIndex = max(x0 - neighborhood, 0);
+                const minYIndex = max(y0 - neighborhood, 0);
+                const maxXIndex = min(x1 + derivativeNeighborhoodX + neighborhood, video.width);
+                const maxYIndex = min(y1 + derivativeNeighborhoodY + neighborhood, video.height);
 
-                    is[index] = count_I(get_val, pixelIndex);
-                    is_old[index] = count_I(get_val_old, pixelIndex);
+                for (let i = minXIndex; i < maxXIndex; i++) {
+                    for (let j = minYIndex; j < maxYIndex; j++) {
+
+                        const index = j * video.width + i;
+                        const pixelIndex = index * 4;
+
+                        is[index] = count_I(get_val, pixelIndex);
+                        is_old[index] = count_I(get_val_old, pixelIndex);
+                    }
                 }
-            }
 
-            const minX = max(0, x0 - neighborhood), maxX = min(video.width - derivativeNeighborhoodX, x1 + neighborhood);
-            const minY = max(0, y0 - neighborhood), maxY = min(video.height - derivativeNeighborhoodY, y1 + neighborhood);
+                const minX = max(0, x0 - neighborhood),
+                    maxX = min(video.width - derivativeNeighborhoodX, x1 + neighborhood);
+                const minY = max(0, y0 - neighborhood),
+                    maxY = min(video.height - derivativeNeighborhoodY, y1 + neighborhood);
 
-            for (let i = minX; i < maxX; i++) {
-                for (let j = minY; j < maxY; j++) {
-                    const x_deriv = getXDerivative(derivativeNeighborhoodX, derivativeNeighborhoodY, get_i_old, get_i, i, j);
-                    const y_deriv = getYDerivative(derivativeNeighborhoodX, derivativeNeighborhoodY, get_i_old, get_i, i, j);
-                    const t_deriv = getTDerivative(derivativeNeighborhoodX, derivativeNeighborhoodY, get_i_old, get_i, i, j);
+                for (let i = minX; i < maxX; i++) {
+                    for (let j = minY; j < maxY; j++) {
+                        const x_deriv = getXDerivative(derivativeNeighborhoodX, derivativeNeighborhoodY, get_i_old, get_i, i, j);
+                        const y_deriv = getYDerivative(derivativeNeighborhoodX, derivativeNeighborhoodY, get_i_old, get_i, i, j);
+                        const t_deriv = getTDerivative(derivativeNeighborhoodX, derivativeNeighborhoodY, get_i_old, get_i, i, j);
 
-                    const index = j * video.width * 3 + i * 3;
+                        const index = j * video.width * 3 + i * 3;
 
-                    derivs[index + 0] = x_deriv;
-                    derivs[index + 1] = y_deriv;
-                    derivs[index + 2] = t_deriv;
+                        derivs[index + 0] = x_deriv;
+                        derivs[index + 1] = y_deriv;
+                        derivs[index + 2] = t_deriv;
+                    }
                 }
-            }
 
-            let count = 0;
-            let averageX = 0, averageY = 0;
-            for (let i = x0; i < x1; i++) {
-                for (let j = y0; j < y1; j++) {
+                let averageX = 0, averageY = 0;
+                for (let i = x0; i < x1; i++) {
+                    for (let j = y0; j < y1; j++) {
 
-                    const diff = found_move(get_deriv, i, j, neighborhood, video.width, video.height, get_weight);
+                        const diff = found_move(get_deriv, i, j, neighborhood, video.width, video.height, get_weight);
 
-                    count++;
-                    averageX += diff.x;
-                    averageY += diff.y;
+                        averageX += diff.x;
+                        averageY += diff.y;
 
-                    if (i % 5 === 0 && j % 5 === 0)
-                        draw_strela(context, i, j, diff.x, diff.y);
+                        if (i % 5 === 0 && j % 5 === 0)
+                            draw_strela(context, i, j, diff.x, diff.y);
+                    }
                 }
+
+                const pixelCount = (x1 - x0) * (y1 - y0);
+
+                averageX = Math.trunc(averageX / pixelCount);
+                averageY = Math.trunc(averageY / pixelCount);
+
+                objects[i] = {'leftx': x0 + averageX, 'rightx': x1 + averageX, 'downy': y0 + averageY, 'upy': y1 + averageY};
             }
-
-            averageX = Math.trunc(averageX / count);
-            averageY = Math.trunc(averageY / count);
-
-            x0 += averageX;
-            x1 += averageX;
-            y0 += averageY;
-            y1 += averageY;
 
             photo.src = canvas.toDataURL('image/png');
             photoOld.src = canvas1.toDataURL('image/png');
@@ -333,30 +349,55 @@ window.onload = function () {
 
             const step = Math.trunc(currentSize / 4);
 
-            for (let x = 0; x + currentSize < maxWidth; x = x + step) {
-                for (let y = 0; y + currentSize < maxHeigth; y = y + step) {
-                    const leftX = x;
-                    const rightX = x + currentSize;
-                    const downY = y;
-                    const upY = y + currentSize;
-                    if (is_red(context1, leftX, rightX, downY, upY)) {
-                        x0 = leftX;
-                        x1 = rightX;
-                        y0 = downY;
-                        y1 = upY;
-                        smile(context1, leftX, rightX, downY, upY);
-                        found = true;
+            if (maxObjects !== 0) {
+
+                for (let x = 0; x + currentSize < maxWidth; x = x + step) {
+                    let exit = false;
+                    for (let y = 0; y + currentSize < maxHeigth; y = y + step) {
+                        const leftX = x;
+                        const rightX = x + currentSize;
+                        const downY = y;
+                        const upY = y + currentSize;
+                        if (is_red(context1, leftX, rightX, downY, upY)) {
+                            const obj = {'leftx': leftX, 'rightx': rightX, 'downy': downY, 'upy': upY};
+
+                            let badOne = false;
+                            for (let i = 0; i < objects.length; i++) {
+                                const object1 = objects[i];
+
+                                if (check_intersection(obj, object1)) {
+                                    badOne = true;
+                                    break;
+                                }
+                            }
+
+                            if (badOne) {
+                                continue;
+                            }
+
+                            objects.push(obj);
+
+                            if (objects.length === maxObjects) {
+                                exit = true;
+                                break;
+                            }
+
+                        }
+                    }
+                    if (exit) {
                         break;
                     }
                 }
-                if (found) {
-                    break;
+
+                for (let i = 0; i < objects.length; i++) {
+                    const object = objects[i];
+                    smile(context1, object['leftx'], object['rightx'], object['downy'], object['upy']);
                 }
             }
 
             photoOld.src = canvas1.toDataURL('image/png');
 
-            if (found) {
+            if (objects) {
                 context1.putImageData(buffer, 0, 0);
             }
         }
