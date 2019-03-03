@@ -31,6 +31,12 @@ function is_red(context, leftX, rightX, downY, upY) {
     return sum > pixelCount * 80 / 100;
 }
 
+function name(context, left, right, bottom, top) {
+    context.font = "12px serif";
+    context.textBaseline = "hanging";
+    context.strokeText("Red object", left, bottom);
+}
+
 function smile(context, left, right, bottom, top) {
 
     context.beginPath();
@@ -126,7 +132,7 @@ function found_move(get_deriv, x_start, y_start, neighborhood, maxWidth, maxHeig
     if (x_start < neighborhood || y_start < neighborhood || (maxWidth - x_start) <= neighborhood || (maxHeight - y_start) <= neighborhood)
         return {x: 0, y: 0};
 
-    let a = 0, b = 0, c = 0, d = 0, d1 = 0, d2 = 0;
+    let a = 0, b = 0, d = 0, d1 = 0, d2 = 0;
 
     for (let i = -neighborhood; i <= neighborhood - 1; i++) {
         for (let j = -neighborhood; j <= neighborhood - 1; j++) {
@@ -150,7 +156,7 @@ function found_move(get_deriv, x_start, y_start, neighborhood, maxWidth, maxHeig
             d2 = d2 - t_deriv * t2;
         }
     }
-    c = b;
+    const c = b;
 
     const det = a*d - b*c;
     if (det === 0) {
@@ -218,6 +224,11 @@ window.onload = function () {
             objects.length = 0;
             frameCount = 0;
         }
+
+        context1 = canvas1.getContext('2d');
+        context1.drawImage(video, 0, 0, video.width, video.height);
+
+        const buffer = context1.getImageData(0, 0, video.width, video.height);
 
         if (context1 && objects.length !== 0 && maxObjects !== 0) {
 
@@ -336,18 +347,15 @@ window.onload = function () {
             console.log('Время выполнения = ', performance.now() - start_time);
         } else {
 
-            context1 = canvas1.getContext('2d');
-            context1.drawImage(video, 0, 0, video.width, video.height);
-
             const maxWidth = video.width;
             const maxHeigth = video.height;
             const max = min(maxHeigth, maxWidth);
 
-            const buffer = context1.getImageData(0, 0, video.width, video.height);
+            const currentSize = Math.trunc(max / 8);
 
-            const currentSize = Math.trunc(max / 10);
+            const step = Math.trunc(currentSize / 3);
 
-            const step = Math.trunc(currentSize / 4);
+            const start_time = performance.now();  // позволяет посчитать перфоманс обработки одного кадра
 
             if (maxObjects !== 0) {
 
@@ -389,17 +397,20 @@ window.onload = function () {
                     }
                 }
 
-                for (let i = 0; i < objects.length; i++) {
-                    const object = objects[i];
-                    smile(context1, object['leftx'], object['rightx'], object['downy'], object['upy']);
-                }
-            }
+                console.log('Время выполнения поиска = ', performance.now() - start_time);
 
-            photoOld.src = canvas1.toDataURL('image/png');
-
-            if (objects) {
-                context1.putImageData(buffer, 0, 0);
             }
+        }
+
+        for (let i = 0; i < objects.length; i++) {
+            const object = objects[i];
+            name(context1, object['leftx'], object['rightx'], object['downy'], object['upy']);
+        }
+
+        photoOld.src = canvas1.toDataURL('image/png');
+
+        if (objects) {
+            context1.putImageData(buffer, 0, 0);
         }
     };
 
